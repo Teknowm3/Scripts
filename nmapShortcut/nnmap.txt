@@ -1,0 +1,100 @@
+#!/bin/bash
+
+#	!!--------------------------------------------------------!!
+#	!!Bu icerigi /usr/local/bin folder'inin icine nnmap olarak!!
+#	!!           olusturursaniz kullanabilirsiniz..		  !!
+#	!!		    cd ~/usr/local/bin			  !!
+#	!!			touch nnmap			  !!
+#	!!    vim nmap veya nano nmap ile bu içeriği yapıştırın   !!
+#	!!  kaydedin ve terminal ustunden asagidaki kodu kullanin !!
+#       !!                    chmod +x nnmap			  !!
+#	!! 		  ve kullanmaya uygunsunuz                !!
+#	!!________________________________________________________!!
+#	!!		veya direkt bu icerigi indirip		  !!
+#	!!	    usr/local/bin folder'inin icine atin	  !!
+#	!!________________________________________________________!!
+
+# Yardım Menüsü
+show_help() {
+	cat << EOF
+nnmap - Kullanım Kılavuzu
+
+	Bu script birden fazla parametre kullanarak Nmap taramalari yapar
+	ve bu nmap taramasini Tarih
+	Amaci tamamen bir sürü keystroke hamlesinden kacinmaktir.
+
+Tarama Türleri:
+ 	b -->	basic		Basit SYN Taramasi yapar.
+ 	f -->	full		Tüm portları ve servisleri analiz eder.
+ 	v -->	vuln		Guvenlik acigi odakli tarama yapar.
+
+Ek Parametreler:
+ 	Nmap'in herhangi bir parametresini ek olarak kullanabilirsiniz.
+ 	Ornek: -O (OS Detection), --script=vulners, vb...
+
+Ornek Kullanimi:
+	nnmap b -O 192.168.1.1
+	nnmap f <hedef_ip_adresi> 
+	<buraya girmek istedginiz degeri girin.>
+EOF
+ exit 0
+}
+
+#	Renk Kodlari
+RED="\033[31m"
+GREEN="\033[32m"
+YELLOW="\033[33m"
+BLUE="\033[34m"
+RESET="\033[0m"
+
+#	Eger parametreler bossa veya "-h" "-help" kullanilirsa yardim menusunu goster.
+if [[ $# -eq 0 || $1 == "-h" || $1 == "-help" ]]; then
+	show_help
+fi
+
+
+# 	Ilk arguman tarama turudur
+SCAN_TYPE=$1
+shift 	# Ilk argumani cikar ve geriye ek parametreler ve hedef IP kalsin
+
+#	Hedef IP'yi al (Son arguman oldugu dusunulecek)
+TARGET_IP=${@: -1}
+if [[ -z "$TARGET_IP" ]]; then
+	echo "Hedef IP belirtilmedi! Yardim icin '-h' veya '-help' kullanin."exit 1
+fi
+
+#	Ek parametreleri al (Son arguman haric)
+if [[ $# -gt 1 ]]; then
+	EXTRA_PARAMS=${@:1:$(($#-1))}
+else
+	EXTRA_PARAMS=""
+fi
+
+#	Varsayilan output dizini
+OUTPUT_DIR="/home/kali/Desktop/"
+
+mkdir -p "$OUTPUT_DIR"
+#	Varsayilan output dosyasi
+OUTPUT_FILE="${OUTPUT_DIR}$(date '+%H_%M_%D_%m_%Y').txt"
+
+
+#	Tarama Turune Gore Nmap Komutlarini Calistir
+
+case $SCAN_TYPE in
+	b)
+		echo "Basit Tarama Baslatiliyor..."
+		sudo nmap -sS -T4 $EXTRA_PARAMS -oN "$OUTPUT_FILE" "$TARGET_IP"
+	;;
+	f)
+		echo "Tam Kapsamli Tarama Baslatiliyor..."
+		sudo nmap -sS -sC -sV -p- -O -T4 $EXTRA_PARAMS -oN "$OUTPUT_FILE" "$TARGET_IP"
+	;;
+	v)
+		echo "Vuln Bulma Taramasi Baslatiliyor..."
+		sudo nmap -sV --script=vulners --script-args mincvss=4.0 $EXTRA_PARAMS -oN "$OUTPUT_FILE" "$TARGET_IP"
+	;;
+	*)
+		echo -e "${RED}Gecersiz Tarama Turu Secildi! ${RESET}\nYardim icin ${YELLOW}'nnmap -h'${RESET} veya ${YELLOW}'nnmap -help'${RESET} kullanin."
+		exit 1
+	;;
+esac
